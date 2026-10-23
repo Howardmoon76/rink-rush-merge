@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#073d81">
-  <title>Rink Rush Merge — Jessie &amp; Dad's Prototype v0.2</title>
+  <title>Rink Rush Merge — Jessie &amp; Dad's Prototype v0.4</title>
   <style>
     :root {font-family: ui-rounded, "Trebuchet MS", system-ui, sans-serif; color: #11385c; --ink:#10365b; --blue:#1587e9;--gold:#ffcd37;}
     *,*::before,*::after {box-sizing: border-box}
@@ -77,6 +77,24 @@
     .cell.busy .game-art {filter:drop-shadow(0 0 7px #5dbef9)}
     .cell-label {z-index:1;bottom:2px;background:#e2f5c3dc;color:#265343;text-shadow:0 1px #fff;padding:1px 2px;border-radius:5px;width:max-content;max-width:96%;margin:0 auto;line-height:1.1}
     .counter-bubble {z-index:2}
+
+    /* Version 0.4: a scoreboard milestone, not a change to the merge rules. */
+    .rink-win {text-align:center; padding:4px 3px 1px}
+    .rink-win-art {font-size:clamp(54px,12vw,76px);line-height:1.2;filter:drop-shadow(0 6px 3px #317ca655);animation:rinkTrophyBounce 900ms ease-in-out 2}
+    .rink-win-heading {font-size:clamp(21px,5vw,29px);font-weight:1000;color:#1365ae;margin:8px 0 4px}
+    .rink-win-copy {color:#31516a;margin:8px 0 14px}
+    .rink-rewards {display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:12px 0 18px}
+    .rink-reward {background:linear-gradient(#fff7d5,#f6da84);border:3px solid #fff;border-radius:17px;box-shadow:0 3px 0 #d6aa4f;padding:9px 16px;font-weight:1000;color:#835919}
+    #confettiLayer {position:fixed;inset:0;z-index:45;pointer-events:none;overflow:hidden}
+    .rink-confetti {position:absolute;top:-11vh;width:11px;height:17px;border-radius:3px;opacity:0;animation:rinkConfettiFall var(--duration,2.8s) var(--delay,0s) linear forwards}
+    @keyframes rinkConfettiFall {
+      0% {transform:translate3d(0,-15px,0) rotate(0deg);opacity:0}
+      7% {opacity:1}
+      92% {opacity:1}
+      100% {transform:translate3d(var(--drift,20px),115vh,0) rotate(var(--spin,540deg));opacity:0}
+    }
+    @keyframes rinkTrophyBounce {0%,100% {transform:scale(1)}40% {transform:scale(1.16) rotate(-5deg)}70% {transform:scale(.97) rotate(4deg)}}
+    @media(prefers-reduced-motion:reduce){.rink-confetti{display:none}.rink-win-art{animation:none}}
   </style>
 </head>
 <body>
@@ -136,6 +154,7 @@
     </section>
   </div>
   <div class="toast" id="toast" hidden role="status"></div>
+  <div id="confettiLayer" aria-hidden="true"></div>
 
   <script>
   (() => {
@@ -307,7 +326,7 @@
       [kind, 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)]));
     const nextMerge = {pot:'tree',wood:'boards',boards:'plexi',plexi:'ice',ice:'goals',goals:'scoreboard'};
     const empty = () => Array.from({length:count},()=>null);
-    const newGame = () => { const items=empty();items[mineIndex]={type:'mine'};return {items,energy:100,energyAt:Date.now(),coins:0,stars:0,jobs:[],stash:0,playerName:'Player'}; };
+    const newGame = () => { const items=empty();items[mineIndex]={type:'mine'};return {items,energy:100,energyAt:Date.now(),coins:0,stars:0,jobs:[],stash:0,playerName:'Player',firstRinkCelebrated:false}; };
     function safeParse(s){try{return JSON.parse(s)}catch{return null}}
     function getStored(key){try{return localStorage.getItem(key)}catch{return null}}
     let state = safeParse(getStored(STORE));
@@ -322,6 +341,30 @@
     function sound(){if(!prefs.sound)return;try{const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;const c=new AC(),o=c.createOscillator(),g=c.createGain();o.frequency.value=660;o.type='sine';g.gain.setValueAtTime(.045,c.currentTime);g.gain.exponentialRampToValueAtTime(.001,c.currentTime+.1);o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+.11);setTimeout(()=>c.close(),260)}catch{}}
     function regen(){const now=Date.now();if(state.energy>=100){state.energy=100;state.energyAt=now;return false}const elapsed=Math.max(0,now-state.energyAt),gain=Math.floor(elapsed/120000);if(gain>0){state.energy=Math.min(100,state.energy+gain);state.energyAt=state.energy===100?now:state.energyAt+gain*120000;save();return true}return false}
     function openModal(title,html){modalTitle.textContent=title;modalBody.innerHTML=html;modal.hidden=false;$('closeModal').focus()}
+
+    function showConfetti(){
+      if(!prefs.animations || window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+      const layer=$('confettiLayer');layer.replaceChildren();
+      const colors=['#ffcd37','#47bdf5','#f65e83','#ffffff','#76d954','#b985f8'];
+      for(let i=0;i<65;i++){
+        const piece=document.createElement('span');piece.className='rink-confetti';
+        piece.style.left=`${Math.random()*100}%`;
+        piece.style.backgroundColor=colors[i%colors.length];
+        piece.style.setProperty('--delay',`${(Math.random()*.8).toFixed(2)}s`);
+        piece.style.setProperty('--duration',`${(2.4+Math.random()*1.2).toFixed(2)}s`);
+        piece.style.setProperty('--drift',`${(Math.random()-.5)*260}px`);
+        piece.style.setProperty('--spin',`${360+Math.floor(Math.random()*900)}deg`);
+        layer.appendChild(piece);
+      }
+      setTimeout(()=>layer.replaceChildren(),4700);
+    }
+    function celebrateRink(first){
+      const heading=first?'Jessie’s first rink is ready!':'Another scoreboard completed!';
+      const detail=first?'You merged all the way from wood to a scoreboard. That deserves a celebration!':'You’ve built another rink scoreboard. Great merging!';
+      const rewards=first?'<div class="rink-rewards"><div class="rink-reward">⭐ +50 stars</div><div class="rink-reward">🪙 +25 coins</div></div>':'';
+      openModal(first?'🏆 First Rink Completed!':'🏒 Rink Upgrade Complete!',`<div class="rink-win"><div class="rink-win-art" aria-hidden="true">🏟️🏆</div><div class="rink-win-heading">${heading}</div><p class="rink-win-copy">${detail}</p>${rewards}<button id="celebrationContinue" class="chunky" type="button">Keep merging! 🏒</button></div>`);
+      showConfetti();
+    }
     function closeModal(){modal.hidden=true}
     $('closeModal').addEventListener('click',closeModal);
     modal.addEventListener('click',e=>{if(e.target===modal)closeModal()});
@@ -332,7 +375,7 @@
       case 'continue': enterGame();break;
       case 'settings': showSettings();break;
       case 'help':openModal('📖 How to Play','<p>Welcome to <strong>Rink Rush Merge</strong>! Help build Jessie’s ice hockey world.</p><ul><li>Tap the <strong>mine</strong> to get plant pots.</li><li>Tap <strong>three matching pots</strong> to make a tree.</li><li>Tap the tree to send a worker to chop it.</li><li>Merge three pieces of wood into rink boards.</li><li>Work towards plexiglass, ice, goals and a scoreboard!</li></ul><p>This is just our first little playable experiment. More features will come later.</p>');break;
-      case 'about':openModal('❤️ About Rink Rush Merge','<p><strong>Created by Jessie and Dad</strong>, with coding help from ChatGPT.</p><p>From Jessie’s idea for an ice hockey merge game to a working title screen and little merge board!</p><p>Version 0.2 — first illustrated pieces. 🏒</p>');break;
+      case 'about':openModal('❤️ About Rink Rush Merge','<p><strong>Created by Jessie and Dad</strong>, with coding help from ChatGPT.</p><p>From Jessie’s idea for an ice hockey merge game to a working title screen and little merge board!</p><p>Version 0.4 — scoreboard celebration! 🏒</p>');break;
       case 'profile':showProfile();break;
       case 'events':openModal('🏆 Events','<p>Special hockey events will come later. Right now we’re testing the mine, trees and merging.</p>');break;
       case 'shop':openModal('🛍️ Shop','<p>The shop is planned for a future update. This prototype has no purchases and is completely free.</p>');break;
@@ -349,13 +392,32 @@
     function tapMine(){if(!spawn('pot')){toast('Your board is full! Merge some items first.');return}save();render();sound();announce('🪴 A plant pot! Make three pots, then tap all three to merge them into a tree.')}
     $('mineButton').onclick=tapMine;
     function mergeSelected(){const indexes=selections.slice(),type=state.items[indexes[0]]?.type;if(indexes.length!==3||!indexes.every(i=>state.items[i]?.type===type)||!nextMerge[type])return;
-      state.items[indexes[0]]={type:nextMerge[type],...(nextMerge[type]==='tree'?{chops:0}:{})};for(let j=1;j<3;j++)state.items[indexes[j]]=null;selections=[];state.stars+=5;sound();save();render();announce(type==='pot'?'🌲 Your first tree! Tap it to send a worker.':`🎉 Merged 3 ${itemInfo[type][1]} into ${itemInfo[nextMerge[type]][1]}!`)}
+      const made=nextMerge[type];
+      state.items[indexes[0]]={type:made,...(made==='tree'?{chops:0}:{})};for(let j=1;j<3;j++)state.items[indexes[j]]=null;
+      selections=[];state.stars+=5;
+      const firstRink=made==='scoreboard'&&!state.firstRinkCelebrated;
+      if(firstRink){state.firstRinkCelebrated=true;state.stars+=50;state.coins+=25}
+      sound();save();render();
+      if(made==='scoreboard'){
+        announce(firstRink?'🏆 First rink completed! +50 stars and +25 coins!':'🏒 Another scoreboard completed!');
+        celebrateRink(firstRink);
+      }else announce(type==='pot'?'🌲 Your first tree! Tap it to send a worker.':`🎉 Merged 3 ${itemInfo[type][1]} into ${itemInfo[made][1]}!`);
+    }
     function tapCell(index){const item=state.items[index];if(!item)return;
       if(item.type==='mine'){tapMine();return}
       if(item.type==='tree'){selections=[];chop(index);return}
       if(item.type==='chest'){selections=[];state.items[index]=null;const woods=(spawn('wood')?1:0)+(spawn('wood')?1:0);if(woods<2)state.stash+=2-woods;state.coins+=1;save();render();announce('🎁 Treasure chest opened: two wood and one bonus coin!');sound();return}
       if(item.type==='coin'){state.coins+=1;state.items[index]=null;save();render();announce('🪙 Bonus coin collected!');sound();return}
-      if(item.type==='scoreboard'){toast('🏒 Jessie’s rink is coming together!');return}
+      if(item.type==='scoreboard'){
+        // If Jessie finished before uploading this version, tapping her existing
+        // scoreboard still awards the milestone exactly once.
+        if(!state.firstRinkCelebrated){
+          state.firstRinkCelebrated=true;state.stars+=50;state.coins+=25;
+          save();render();announce('🏆 First rink completed! +50 stars and +25 coins!');
+          celebrateRink(true);
+        }else toast('🏆 Rink complete! Amazing work, Jessie!');
+        return;
+      }
       const existing=selections[0],targetType=item.type;
       if(existing!==undefined&&state.items[existing]?.type!==targetType)selections=[];
       if(selections.includes(index))selections=selections.filter(i=>i!==index);else selections.push(index);
@@ -380,7 +442,7 @@
         const em=document.createElement('span');em.className='emoji';em.textContent=emoji;b.appendChild(em);
       }const txt=document.createElement('span');txt.className='cell-label';txt.textContent=label;b.appendChild(txt);b.setAttribute('aria-label',`${label}${item.type==='tree'?`, chopped ${item.chops||0} of 4 times`:''}`);if(item.type==='tree'){const countLabel=document.createElement('span');countLabel.className='counter-bubble';countLabel.textContent=`${item.chops||0}/4`;b.appendChild(countLabel)}if(state.jobs.some(j=>j.index===i))b.classList.add('busy');}else{b.setAttribute('aria-label','Empty grass tile');b.disabled=true}if(selections.includes(i))b.classList.add('selected');b.addEventListener('click',()=>tapCell(i));board.appendChild(b)} }
     $('resetButton').onclick=()=>openModal('↻ Restart prototype?','<p>This will clear the little experimental board and start again at the mine. Are you sure?</p><button id="confirmReset" class="chunky">Yes, restart</button><button id="cancelReset" class="chunky secondary">Cancel</button>');
-    modalBody.addEventListener('click',e=>{if(e.target.id==='cancelReset')closeModal();if(e.target.id==='confirmReset'){const name=state.playerName;state=newGame();state.playerName=name;selections=[];save();render();closeModal();announce('Fresh start! Tap the mine to create a plant pot.')}});
+    modalBody.addEventListener('click',e=>{if(e.target.id==='cancelReset'||e.target.id==='celebrationContinue')closeModal();if(e.target.id==='confirmReset'){const name=state.playerName;state=newGame();state.playerName=name;selections=[];save();render();closeModal();announce('Fresh start! Tap the mine to create a plant pot.')}});
     applyPrefs();regen();finishJobs();setInterval(()=>{if(!gameScreen.hidden){const regenerated=regen();const finished=finishJobs();if(regenerated&&!finished)render()}else regen()},1000);
   })();
   </script>
