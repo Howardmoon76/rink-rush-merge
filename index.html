@@ -95,6 +95,11 @@
     }
     @keyframes rinkTrophyBounce {0%,100% {transform:scale(1)}40% {transform:scale(1.16) rotate(-5deg)}70% {transform:scale(.97) rotate(4deg)}}
     @media(prefers-reduced-motion:reduce){.rink-confetti{display:none}.rink-win-art{animation:none}}
+    .fan-order {display:grid;gap:10px;background:#fffdf1;border:2px solid #e6c97c;border-radius:16px;padding:12px}
+    .fan-order h3,.fan-order p {margin:0}
+    .fan-intro {display:flex;align-items:center;gap:10px}
+    .fan-portrait {width:72px;flex:none;border-radius:15px;background:#dff5ff}
+    .fan-order .action-btn {padding:9px;font-size:15px}
   </style>
 </head>
 <body>
@@ -132,6 +137,30 @@
           <div class="guide" id="boardMessage" aria-live="polite">Welcome! Tap the mine to make plant pots.</div>
         </section>
         <aside class="side-panel">
+          <section id="fanOrder" class="fan-order" aria-labelledby="fanHeading" hidden>
+            <div class="fan-intro">
+              <svg class="fan-portrait" viewBox="0 0 80 80" aria-hidden="true">
+                <path d="M8 80V73Q8 56 40 54Q72 56 72 73V80Z" fill="#126aa8"/>
+                <path d="M33 49h14v12H33z" fill="#b97853"/>
+                <circle cx="40" cy="37" r="21" fill="#d89970"/>
+                <path d="M18 33Q18 13 40 13T62 33Z" fill="#16365b"/>
+                <path d="M19 33H61" stroke="#2998d3" stroke-width="7" stroke-linecap="round"/>
+                <circle cx="40" cy="13" r="6" fill="#ffd04e"/>
+                <path d="M32 40h.1m15.9 0h.1m-13 8q5 5 10 0" fill="none" stroke="#462b29" stroke-width="2.5" stroke-linecap="round"/>
+                <g id="fanScarf" hidden>
+                  <path d="M24 54q16 7 33 0l2 10-8 3v11H40V67q-9 0-17-4Z" fill="#184e93" stroke="#102e5a" stroke-width="2"/>
+                  <path d="M27 57l-1 6m10-4-1 6m17-8 2 7m-12 7h8m-8 5h8" stroke="#ffd04e" stroke-width="3"/>
+                </g>
+              </svg>
+              <div>
+                <h3 id="fanHeading" tabindex="-1">First Fan Order</h3>
+                <p id="fanDialogue" role="status"></p>
+              </div>
+            </div>
+            <p id="fanHint" class="fine"></p>
+            <button id="puckBucket" type="button" class="action-btn">🪣 Tap the Puck Bucket</button>
+            <button id="deliverScarf" type="button" class="action-btn green">🧣 Give Scarf · +10 coins</button>
+          </section>
           <h2>⛏️ Your first quest</h2>
           <div class="step"><strong>1.</strong> Tap the mine ⛏️ to produce plant pots 🪴.</div>
           <div class="step"><strong>2.</strong> Tap <strong>three</strong> plant pots to merge them into a tree 🌲.</div>
@@ -170,10 +199,22 @@
       mine: ['⛏️','Mine'], pot:['🪴','Plant pot'], tree:['🌲','Tree'],
       wood:['🪵','Wood'], boards:['🧱','Rink boards'], plexi:['🪟','Plexiglass'],
       ice:['🧊','Ice'], goals:['🥅','Goals'], scoreboard:['🏟️','Scoreboard'],
-      chest:['🎁','Treasure'], coin:['🪙','Bonus coin']
+      chest:['🎁','Treasure'], coin:['🪙','Bonus coin'],
+      puck:['🏒','Puck'], scarf:['🧣','Scarf']
     };
     // Hand-drawn, self-contained mini game artwork. No extra asset uploads needed.
     const artSvg = {
+      puck: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+        <path d="M19 59v20c0 14 20 25 45 25s45-11 45-25V59" fill="#152232" stroke="#0d1925" stroke-width="4"/>
+        <ellipse cx="64" cy="59" rx="45" ry="24" fill="#394a5d" stroke="#0d1925" stroke-width="4"/>
+        <path d="M34 57q9-10 30-11" fill="none" stroke="#8593a2" stroke-width="4" stroke-linecap="round"/>
+        <path d="M27 83l5 5m8 0 5 5m10-2 5 5m11-5 5 4m10-7 5 3" stroke="#627386" stroke-width="2"/>
+      </svg>`,
+      scarf: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+        <path d="M28 95V47a36 36 0 0 1 72 0v49H76V47a12 12 0 0 0-24 0v48Z" fill="#184e93" stroke="#102e5a" stroke-width="4"/>
+        <path d="M30 62h20m-20 16h20m28-16h20m-20 16h20" stroke="#ffd04e" stroke-width="6"/>
+        <path d="M32 96v8m8-8v8m8-8v8m32-8v8m8-8v8m8-8v8" stroke="#ffd04e" stroke-width="4" stroke-linecap="round"/>
+      </svg>`,
       mine: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128"><defs>
     <linearGradient id="grass" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#dbfb8b"/><stop offset="1" stop-color="#71bb4e"/></linearGradient>
     <linearGradient id="wood" x1="0" y1="0" x2=".15" y2="1"><stop stop-color="#e9a85b"/><stop offset=".48" stop-color="#bd6734"/><stop offset="1" stop-color="#75371f"/></linearGradient>
@@ -324,13 +365,14 @@
     };
     const artSrc = Object.fromEntries(Object.entries(artSvg).map(([kind,svg]) =>
       [kind, 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)]));
-    const nextMerge = {pot:'tree',wood:'boards',boards:'plexi',plexi:'ice',ice:'goals',goals:'scoreboard'};
+    const nextMerge = {pot:'tree',wood:'boards',boards:'plexi',plexi:'ice',ice:'goals',goals:'scoreboard',puck:'scarf'};
     const empty = () => Array.from({length:count},()=>null);
-    const newGame = () => { const items=empty();items[mineIndex]={type:'mine'};return {items,energy:100,energyAt:Date.now(),coins:0,stars:0,jobs:[],stash:0,playerName:'Player',firstRinkCelebrated:false}; };
+    const newGame = () => { const items=empty();items[mineIndex]={type:'mine'};return {items,energy:100,energyAt:Date.now(),coins:0,stars:0,jobs:[],stash:0,playerName:'Player',firstRinkCelebrated:false,firstFanServed:false}; };
     function safeParse(s){try{return JSON.parse(s)}catch{return null}}
     function getStored(key){try{return localStorage.getItem(key)}catch{return null}}
     let state = safeParse(getStored(STORE));
     if (!state || !Array.isArray(state.items) || state.items.length !== count) state = newGame();
+    const fanReward = 10;
     let prefs = Object.assign({sound:false,animations:true},safeParse(getStored(PREF_STORE))||{});
     let selections=[];
     let toastTimer;
@@ -375,7 +417,7 @@
       case 'continue': enterGame();break;
       case 'settings': showSettings();break;
       case 'help':openModal('📖 How to Play','<p>Welcome to <strong>Rink Rush Merge</strong>! Help build Jessie’s ice hockey world.</p><ul><li>Tap the <strong>mine</strong> to get plant pots.</li><li>Tap <strong>three matching pots</strong> to make a tree.</li><li>Tap the tree to send a worker to chop it.</li><li>Merge three pieces of wood into rink boards.</li><li>Work towards plexiglass, ice, goals and a scoreboard!</li></ul><p>This is just our first little playable experiment. More features will come later.</p>');break;
-      case 'about':openModal('❤️ About Rink Rush Merge','<p><strong>Created by Jessie and Dad</strong>, with coding help from ChatGPT.</p><p>From Jessie’s idea for an ice hockey merge game to a working title screen and little merge board!</p><p>Version 0.4 — scoreboard celebration! 🏒</p>');break;
+      case 'about':openModal('❤️ About Rink Rush Merge','<p><strong>Created by Jessie and Dad</strong>, with coding help from ChatGPT.</p><p>From Jessie’s idea for an ice hockey merge game to a working title screen and little merge board!</p><p>Version 0.5 — first fan order! 🏒</p>');break;
       case 'profile':showProfile();break;
       case 'events':openModal('🏆 Events','<p>Special hockey events will come later. Right now we’re testing the mine, trees and merging.</p>');break;
       case 'shop':openModal('🛍️ Shop','<p>The shop is planned for a future update. This prototype has no purchases and is completely free.</p>');break;
@@ -385,12 +427,56 @@
     function showSettings(){openModal('⚙️ Settings',`<div class="setting-row"><strong>Sound effects</strong><button class="toggle" id="soundToggle" aria-pressed="${prefs.sound}">${prefs.sound?'On':'Off'}</button></div><div class="setting-row"><strong>Animations</strong><button class="toggle" id="animToggle" aria-pressed="${prefs.animations}">${prefs.animations?'On':'Off'}</button></div><p class="fine">Settings are saved on this device.</p>`);
       $('soundToggle').onclick=()=>{prefs.sound=!prefs.sound;savePrefs();showSettings();sound()};$('animToggle').onclick=()=>{prefs.animations=!prefs.animations;savePrefs();applyPrefs();showSettings()};}
     function showProfile(){openModal('✏️ Player Name',`<p>What should we call the player?</p><label for="playerInput">Player name</label><input class="plain-input" id="playerInput" maxlength="25"><button class="chunky" id="savePlayer">Save Name</button>`);$('playerInput').value=state.playerName||'Player';$('savePlayer').onclick=()=>{state.playerName=$('playerInput').value.trim()||'Player';save();closeModal();toast(`Hello, ${state.playerName}! 🏒`)};}
-    function enterGame(){closeModal();regen();finishJobs();titleScreen.hidden=true;gameScreen.hidden=false;render();announce('Welcome to your first island! Tap the mine to make three pots.');window.scrollTo(0,0)}
+    function enterGame(){closeModal();regen();finishJobs();titleScreen.hidden=true;gameScreen.hidden=false;render();announce(state.firstRinkCelebrated && !state.firstFanServed ? '🏒 Your first fan is here! Find the puck bucket in First Fan Order.' : 'Welcome to your first island! Tap the mine to make three pots.');window.scrollTo(0,0)}
     $('homeBtn').onclick=()=>{gameScreen.hidden=true;titleScreen.hidden=false;closeModal();window.scrollTo(0,0)};
     function freeSpot(){const available=[];for(let i=0;i<count;i++)if(!state.items[i])available.push(i);return available.length?available[Math.floor(Math.random()*available.length)]:-1}
     function spawn(type){const n=freeSpot();if(n<0)return false;state.items[n]={type,...(type==='tree'?{chops:0}:{})};return true}
     function tapMine(){if(!spawn('pot')){toast('Your board is full! Merge some items first.');return}save();render();sound();announce('🪴 A plant pot! Make three pots, then tap all three to merge them into a tree.')}
     $('mineButton').onclick=tapMine;
+
+    $('puckBucket').onclick=()=>{
+      const puckCount=state.items.filter(item=>item?.type==='puck').length;
+      if(!state.firstRinkCelebrated || state.firstFanServed || puckCount>=3 ||
+         state.items.some(item=>item?.type==='scarf'))return;
+      if(state.items.filter(item=>!item).length<3-puckCount){
+        toast('Make room for all three pucks by merging some rink items first.');
+        return;
+      }
+      spawn('puck');
+      save();render();sound();
+      announce('🏒 A puck! Tap three matching pucks on the board to make a scarf.');
+    };
+
+    $('deliverScarf').onclick=()=>{
+      const scarfIndex=state.items.findIndex(item=>item?.type==='scarf');
+      if(!state.firstRinkCelebrated || state.firstFanServed || scarfIndex<0)return;
+      state.items[scarfIndex]=null;
+      state.firstFanServed=true;
+      state.coins+=fanReward;
+      selections=[];
+      save();render();sound();
+      $('fanHeading').focus();
+      announce(`🧣 Your first fan is wearing their new scarf! +${fanReward} coins.`);
+    };
+
+    function renderFanOrder(){
+      $('fanOrder').hidden=!state.firstRinkCelebrated;
+      if(!state.firstRinkCelebrated)return;
+      const served=Boolean(state.firstFanServed);
+      const scarfReady=state.items.some(item=>item?.type==='scarf');
+      const puckCount=state.items.filter(item=>item?.type==='puck').length;
+      $('fanScarf').toggleAttribute('hidden',!served);
+      $('fanHeading').textContent=served?'First Fan Served!':'First Fan Order';
+      $('fanDialogue').textContent=served?'“Thanks! Now I’m ready to cheer!”':'“I’m here for opening night! Can you make me a scarf?”';
+      $('fanHint').textContent=served?`Scarf delivered · +${fanReward} coins`:scarfReady?
+        'Your scarf is ready to give to the fan.':
+        `Collect and merge three pucks on the board (${puckCount}/3 collected).`;
+      $('puckBucket').hidden=served || scarfReady;
+      $('puckBucket').disabled=puckCount>=3;
+      $('deliverScarf').hidden=served;
+      $('deliverScarf').disabled=!scarfReady;
+      $('deliverScarf').textContent=`🧣 Give Scarf · +${fanReward} coins`;
+    }
     function mergeSelected(){const indexes=selections.slice(),type=state.items[indexes[0]]?.type;if(indexes.length!==3||!indexes.every(i=>state.items[i]?.type===type)||!nextMerge[type])return;
       const made=nextMerge[type];
       state.items[indexes[0]]={type:made,...(made==='tree'?{chops:0}:{})};for(let j=1;j<3;j++)state.items[indexes[j]]=null;
@@ -401,6 +487,8 @@
       if(made==='scoreboard'){
         announce(firstRink?'🏆 First rink completed! +50 stars and +25 coins!':'🏒 Another scoreboard completed!');
         celebrateRink(firstRink);
+      }else if(made==='scarf'){
+        announce('🧣 Your scarf is ready! Use Give Scarf to hand it to the fan.');
       }else announce(type==='pot'?'🌲 Your first tree! Tap it to send a worker.':`🎉 Merged 3 ${itemInfo[type][1]} into ${itemInfo[made][1]}!`);
     }
     function tapCell(index){const item=state.items[index];if(!item)return;
@@ -418,6 +506,7 @@
         }else toast('🏆 Rink complete! Amazing work, Jessie!');
         return;
       }
+      if(item.type==='scarf'){$('deliverScarf').focus();return}
       const existing=selections[0],targetType=item.type;
       if(existing!==undefined&&state.items[existing]?.type!==targetType)selections=[];
       if(selections.includes(index))selections=selections.filter(i=>i!==index);else selections.push(index);
@@ -431,7 +520,7 @@
       const seconds=last?8:2;state.jobs.push({index,doneAt:Date.now()+seconds*1000});save();render();announce(last?'🪓 Final chop! The worker is opening a treasure chest (8 seconds in this demo).':'🪓 Your worker is chopping! The wood will appear in a moment.');sound();}
     function finishJobs(){let finished=false;for(const job of [...state.jobs]){if(Date.now()<job.doneAt)continue;finished=true;state.jobs=state.jobs.filter(j=>j!==job);const tree=state.items[job.index];if(tree?.type!=='tree')continue;tree.chops=(tree.chops||0)+1;if(tree.chops>=4){state.items[job.index]={type:'chest'};announce('🎁 Your tree became a treasure chest! Tap it to open.')}else{if(!spawn('wood'))state.stash++;if(Math.random()<.28)spawn('coin');announce(`🪵 Wood collected! ${4-tree.chops} more chop${4-tree.chops===1?'':'s'} until the chest.`)}}
       if(finished){save();render();sound()}return finished}
-    function render(){regen();const active=state.jobs.length;$('workersDisplay').textContent=`👷 ${2-active}/2`;$('energyDisplay').textContent=`⚡ ${state.energy}/100`;$('starDisplay').textContent=`⭐ ${state.stars}`;$('coinDisplay').textContent=`🪙 ${state.coins}`;
+    function render(){regen();renderFanOrder();const active=state.jobs.length;$('workersDisplay').textContent=`👷 ${2-active}/2`;$('energyDisplay').textContent=`⚡ ${state.energy}/100`;$('starDisplay').textContent=`⭐ ${state.stars}`;$('coinDisplay').textContent=`🪙 ${state.coins}`;
       $('mergeProgress').textContent=`🏒 Rink chain: 🪵 Wood → 🧱 Boards → 🪟 Plexiglass → 🧊 Ice → 🥅 Goals → 🏟️ Scoreboard${state.stash?` • Stored wood: ${state.stash}`:''}`;
       const board=$('board');board.replaceChildren();for(let i=0;i<count;i++){const b=document.createElement('button');b.className='cell';b.type='button';const item=state.items[i];if(item){const [emoji,label]=itemInfo[item.type]||['❔','Unknown'];if(artSrc[item.type]){
         const picture=document.createElement('img');
@@ -442,7 +531,15 @@
         const em=document.createElement('span');em.className='emoji';em.textContent=emoji;b.appendChild(em);
       }const txt=document.createElement('span');txt.className='cell-label';txt.textContent=label;b.appendChild(txt);b.setAttribute('aria-label',`${label}${item.type==='tree'?`, chopped ${item.chops||0} of 4 times`:''}`);if(item.type==='tree'){const countLabel=document.createElement('span');countLabel.className='counter-bubble';countLabel.textContent=`${item.chops||0}/4`;b.appendChild(countLabel)}if(state.jobs.some(j=>j.index===i))b.classList.add('busy');}else{b.setAttribute('aria-label','Empty grass tile');b.disabled=true}if(selections.includes(i))b.classList.add('selected');b.addEventListener('click',()=>tapCell(i));board.appendChild(b)} }
     $('resetButton').onclick=()=>openModal('↻ Restart prototype?','<p>This will clear the little experimental board and start again at the mine. Are you sure?</p><button id="confirmReset" class="chunky">Yes, restart</button><button id="cancelReset" class="chunky secondary">Cancel</button>');
-    modalBody.addEventListener('click',e=>{if(e.target.id==='cancelReset'||e.target.id==='celebrationContinue')closeModal();if(e.target.id==='confirmReset'){const name=state.playerName;state=newGame();state.playerName=name;selections=[];save();render();closeModal();announce('Fresh start! Tap the mine to create a plant pot.')}});
+    modalBody.addEventListener('click',e=>{if(e.target.id==='cancelReset')closeModal();
+      if(e.target.id==='celebrationContinue'){
+        closeModal();
+        if(state.firstRinkCelebrated && !state.firstFanServed){
+          $('fanHeading').focus();
+          announce('🏒 Your first fan is here! Tap the puck bucket to start the scarf order.');
+        }
+      }
+      if(e.target.id==='confirmReset'){const name=state.playerName;state=newGame();state.playerName=name;selections=[];save();render();closeModal();announce('Fresh start! Tap the mine to create a plant pot.')}});
     applyPrefs();regen();finishJobs();setInterval(()=>{if(!gameScreen.hidden){const regenerated=regen();const finished=finishJobs();if(regenerated&&!finished)render()}else regen()},1000);
   })();
   </script>
